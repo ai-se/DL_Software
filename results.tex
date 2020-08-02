@@ -1,0 +1,44 @@
+\newcommand{\lightgray}[1]{\cellcolor{blue!10}\textcolor{black}{#1}}
+\newcommand{\gray}[1]{\cellcolor{blue!30}\textcolor{black}{#1}}
+%\newcommand{\gray}[1]{\textbf{#1}}
+%\newcommand{\lightgray}[1]{\textit{#1}}
+
+\begin{table}[ht]
+\caption{Experimental results. Values in each cell are the median values. Over 20 runs, the results were ranked by distributional statistics. \colorbox{blue!30}{Dark blue} indicates the best rank (note that for pf, lower values are better), \colorbox{blue!10}{light blue} indicates the second rank, and white indicates the lowest rank (worst performance). In cases of ties, both learners get the same rank.}
+\label{tab:results}
+~~~~~~~~\begin{tabular}{ll|llll}
+\toprule
+                                         &       & AUC  & popt20 & recall & pf   \\ \midrule
+\multicolumn{1}{l}{\multirow{3}{*}{ivy}} & DL &  0.58 & 0.15 & 0.33 & \gray{0.27} \\
+\multicolumn{1}{c}{}                     & DODGE & \gray{0.71} & \lightgray{0.25}   & \lightgray{0.85}   & \lightgray{0.36} \\
+\multicolumn{1}{c}{}                     & GHOST & \lightgray{0.69}  & \gray{0.31}   & \gray{0.95}    & \lightgray{0.38} \\
+\midrule \multirow{3}{*}{camel}          & DL & 0.55 & \lightgray{0.18} & \lightgray{0.10} & \gray{0.04} \\       
+                                         & DODGE & \lightgray{0.58} & \gray{0.54}   & \gray{0.63}   & \gray{0.36} \\
+                                         & GHOST & \gray{0.62} & \gray{0.54}   & \gray{0.65}   & \lightgray{0.41} \\
+\midrule \multirow{3}{*}{jedit}          & DL & 0.61 & 0.10 & 0.46 & \gray{0.16} \\         
+                                         & DODGE & \lightgray{0.63} & \lightgray{0.39}   & \lightgray{0.64}   & \gray{0.25} \\
+                                         & GHOST & \gray{0.68} & \gray{0.41}   & \gray{0.91}   & \lightgray{0.40} \\
+\midrule \multirow{3}{*}{log4j}          & DL & 0.55 & \lightgray{0.31} & 0.33 & \gray{0.13} \\        
+                                         & DODGE & \lightgray{0.61} & \gray{0.99}   & \lightgray{0.54}   & \lightgray{0.22} \\
+                                         & GHOST & \gray{0.66} & \gray{0.99}   & \gray{0.75}   & \gray{0.19} \\
+\midrule \multirow{3}{*}{velocity}       & DL & 0.50 & 0.57 & \gray{0.90} & 0.87 \\         
+                                         & DODGE & \lightgray{0.61} & \gray{0.64}   & \lightgray{0.76}   & \gray{0.47} \\
+                                         & GHOST & \gray{0.68} & \lightgray{0.64}   & \lightgray{0.82}    & \gray{0.47}  \\
+\midrule \multirow{3}{*}{synapse}        & DL & 0.54 & \lightgray{0.23} & 0.20 & \gray{0.05} \\         
+                                         & DODGE & \lightgray{0.65} & \gray{0.48}   & \gray{0.65}   & \gray{0.23} \\
+                                         & GHOST & \gray{0.67} & \gray{0.48}   & \lightgray{0.63}   & \lightgray{0.33} \\
+\midrule \multirow{3}{*}{lucene}         & DL & \lightgray{0.58} & \lightgray{0.51} & \gray{0.69} & 0.52 \\         
+                                         & DODGE & \gray{0.61} & \gray{0.80}   & \gray{0.67}    & \lightgray{0.36}  \\
+                                         & GHOST & \lightgray{0.59} & \gray{0.80}   & \gray{0.7}   & \gray{0.34}  \\
+\midrule \multirow{3}{*}{xalan}          & DL & 0.55 & \lightgray{0.24} & 0.21 & \gray{0.09} \\        
+                                         & DODGE & \lightgray{0.71} & \gray{1.0}    & \lightgray{0.71}   & \gray{0.14}  \\
+                                         & GHOST & \gray{0.75} & \gray{1.0}    & \gray{0.76}   & \lightgray{0.27} \\
+\midrule \multirow{3}{*}{xerces}         & DL & 0.52 & \lightgray{0.28} & 0 & \gray{0.04} \\         
+                                         & DODGE & \lightgray{0.59} & \gray{0.93}   & \lightgray{0.54}   & \gray{0.15}  \\
+                                         & GHOST & \gray{0.62} & \gray{0.94}   & \gray{0.57}   & \gray{0.39}  \\
+\midrule \multirow{3}{*}{poi}            & DL & \lightgray{0.61} & 0.36 & \lightgray{0.45} & \gray{0.18} \\         
+                                         & DODGE & \gray{0.72} & \lightgray{0.66}   & \gray{0.78}   & \gray{0.22} \\
+                                         & GHOST & \gray{0.73} & \gray{0.74}   & \gray{0.78}   & \lightgray{0.38} \\
+                                         \bottomrule
+\end{tabular}
+\end{table}
