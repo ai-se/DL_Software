@@ -19,6 +19,7 @@
 \usepackage[ruled,linesnumbered]{algorithm2e}
 \usepackage{url}
 \usepackage{amsmath}
+\usepackage{amsthm}
 \usepackage{amsfonts}
 \usepackage[table]{xcolor}
 \newtcolorbox{blockquote}{colback=blue!5!white,boxrule=0.4pt,colframe=gray!60!black,fonttitle=\bfseries}
@@ -643,291 +644,6 @@ Agrawal et al.~\cite{agrawal2019dodge}  found that, for defect prediction,
 the above loop performed no worse than those found after $N=1000$ loops. Better yet, the optimizations found that way
 out-performed numerous prior results.
 
-\subsubsection{Optimization with GHOST}
-The lesson of DODGE is that the particulars
-of Table~\ref{tab:preprocessors1} can be
-less important than how we explore combinations
-of learning methods.   So can we do more with
-that insight? Is there some process more
-direct that DODGE that explores, in a
-more direct way, how to divide data
-into regions that (e.g.) do or do not
-predict for defects?
-
-This section proposes GHOST as an
-answer to those questions. To understand
-GHOST, we first take a glance at   our defect prediction data. Table~\ref{tab:attributes} shows
-the static code attributes seen in our data
-and Table~\ref{tab:datasets} shows what releases
-we use for our training and test sets when comparing with DODGE\footnote{These releases were selected as follows: in the available data, use recent releases to predict for defects in the latest release.} (when comparing against our other baseline by Wang et al. \cite{wang2018deep}, we use the same train and test release versions as they do). A curious feature of    Table~\ref{tab:datasets} is the wide variability in the percent of defects seen in the training and test sets. For example, the defect ratios in: 
-\bi
-\item  velocity's  train:test ratios decrease from 71 to 34\%;
-\item jEdit's train:test sets ratios decrease from  23 to 2\%;
-\item xerces' train:test sets ratios increase from  16 to 74\%.
-\item log4j's train:test sets ratios increase from  29 to 92\%;
-\item xalan's train:test sets ratios increase from 38 to 99\%;
-\ei
-Such massive changes in the target class ratios means
-that the geometry of the hyperspace boundary
-between different classifications  
-can alter dramatically between train and test.
-Therefore, the ``appropriate
-learner''   for
-this kind of data is one that
-works well for a wide range
-of ratios
-of class distributions.
-Such an appropriate learner
-knows how to exploit
-``hints'' from the hyperspace boundary in the train
-set, then apply those hints to the test set.
-
-GHOST was  implemented as an experiment
-to see if the   {\em loss functions} of neural networks can learn such ``hints''.
-What the rest of this paper   shows is that
- such loss function
- (plus some
-fuzzy oversampling, described below) is an effective
-method for handling defect prediction.
-
-\subsubsection{Loss Functions}
-\label{sec:loss}
-In neural networks, the loss function is the prediction error seen in the last epoch of the
-neural net. The loss is used to calculate the gradients used to  update the weights of the neural net for the next epoch of learning. 
-Loss can be calculated in various ways\footnote{ 
-mean squared error,  
-binary crossentropy, 
-categorical crossentropy,
-sparse categorical crossentropy, etc. } but the key point to note here is that, usually, the loss function is fixed prior to learning.
-
-
-
-\begin{table}
-    \centering
-    \caption{Static attributes in our  datasets.}
-    \begin{tabularx}{\linewidth}{lL}
-    \toprule
-        Attribute   & Description (with respect to a class) \\
-        \midrule
-        wmc & Weighted methods per class \cite{chidamber1994metrics} \\
-    \rowcolor{blue!10}    dit & Depth of inheritance tree \cite{chidamber1994metrics} \\
-        noc & Number of children \cite{chidamber1994metrics} \\
-    \rowcolor{blue!10}    cbo & Coupling between objects \cite{chidamber1994metrics} \\
-        rfc & Response for a class \cite{chidamber1994metrics} \\
-    \rowcolor{blue!10}    lcom & Lack of cohesion in methods \cite{chidamber1994metrics} \\
-        lcom3 & Another lcom metric proposed by Henderson-Sellers \cite{henderson1996coupling} \\
-    \rowcolor{blue!10}    npm & Number of public methods \cite{bansiya2002hierarchical} \\
-        loc & Number of lines of code \cite{bansiya2002hierarchical} \\
-    \rowcolor{blue!10}    dam & Fraction of private or protected attributes \cite{bansiya2002hierarchical} \\
-        moa & Number of fields that are user-defined types \cite{bansiya2002hierarchical} \\
-    \rowcolor{blue!10} mfa & Fraction of accessible methods that are inherited \cite{bansiya2002hierarchical} \\
-        cam & Cohesion among methods of a class based on parameter list \cite{bansiya2002hierarchical} \\
-    \rowcolor{blue!10} ic & Inheritance coupling \cite{tang1999empirical} \\
-        cbm & Coupling between methods \cite{tang1999empirical} \\
-    \rowcolor{blue!10} amc & Average method complexity \cite{tang1999empirical} \\
-        ca & Number of classes depending on a class \cite{tang1999empirical} \\
-    \rowcolor{blue!10} ce & Number of classes a class depends on \cite{tang1999empirical} \\
-        max\_cc & Maximum McCabe's cyclomatic complexity score of methods \cite{mccabe1976complexity} \\
-    \rowcolor{blue!10} avg\_cc & Mean of McCabe's cyclomatic complexity score of methods \cite{mccabe1976complexity} 
-    \end{tabularx}
-    \label{tab:attributes}
-\end{table}
-
-
-\begin{table} 
-    \centering
-    \caption{Evaluated software projects for comparing with DODGE \cite{agrawal2019dodge}}
-    \begin{tabularx}{\linewidth}{lllLL}
-        \toprule
-        Project & Train versions & Test versions & Training Buggy \% & Test  Buggy \% \\
-        \midrule
-        ivy & 1.1, 1.4 & 2.0 & 22 & 11 \\
-        \rowcolor{blue!10} lucene & 2.0, 2.2 & 2.4 & 53 & 60 \\
-        poi & 1.5, 2.0, 2.5 & 3.0 & 46 & 65 \\
-        \rowcolor{blue!10}synapse & 1.0, 1.1 & 1.2 & 20 & 34 \\
-        velocity & 1.4, 1.5 & 1.6 & 71 & 34 \\
-        \rowcolor{blue!10}camel & 1.0, 1.2, 1.4 & 1.6 & 21 & 19 \\
-        jEdit & 3.2, 4,0, 4.1, 4.2 & 4.3 & 23 & 2 \\
-        \rowcolor{blue!10}log4j & 1.0, 1.1 & 1.2 & 29 & 92 \\
-        xalan & 2.4, 2.5, 2.6 & 2.7 & 38 & 99 \\
-        \rowcolor{blue!10}xerces & 1.2, 1.3 & 1.4 & 16 & 74 \\
-        \bottomrule \\
-    \end{tabularx}
-    \label{tab:datasets}
-\end{table}
-
-
-
-\begin{figure}[!h]
-\centering
-    \begin{subfigure}[b]{.4\textwidth}
-        \centering
-        \includegraphics[width=.7\textwidth]{unweighted.png}
-        \caption{Unweighted loss function}
-        \label{fig:unweighted}
-    \end{subfigure}
-    %
-    \begin{subfigure}[b]{.4\textwidth}
-        \centering
-        \includegraphics[width=.7\textwidth]{weighted.png}
-        \caption{Weighted loss function}
-        \label{fig:weighted}
-    \end{subfigure}
-    \caption{The two arcs in these figures show points selected from two distributions: $y_1=x_1^2$ and $y_2=x_1^2-1$ (where $y_1$ is ten times more frequent than $y_2$).  The background colors show the hyperspaces learned by a neural network. Note that, in the top plot (using an unweighted loss function), the hyperspace is all one color; i.e, it does not distinguish between the two populations. But in the lower plot, the hyperspace divided into blue and orange, where orange denotes the region where the neural net predicts that the data comes from the minority  $x_1^2-1$. distribution. Observe how  the unweighted loss function misses all the minority class with  while the  weighted loss function can find nearly all  of the minority class.}
-\end{figure}
-
-In 2019, Cui et al.~\cite{Cui_2019_CVPR} proposed dynamically adjusted loss functions that know how to adjust the loss function in order to reduce the overlap between sets of positive and  negative examples.
-Their re-weighting scheme   uses the effective number of samples for each class to re-balance the loss, thereby yielding a class-balanced loss. Their experiments show that,
-when trained with a dynamic class-balanced loss function, the network is able to achieve significant performance gains on data sets with class imbalance. 
-
-The methods of  Cui et al. assumed high dimensional vision data (with, sometimes, over 8000 classes), so we can  not  directly apply their methods here. However, inspired by their work, we did design a class balance method that proved to be effective for defect prediction.
-To illustrate that method, we artificially generated two sets of data with very different class distributions. This data had 200 rows and three columns:
-\bi
-\item A class column, whose values are selected at random, with the negative class being 10 times more likely than the positive class)
-
-\item
-Two other columns which we call $x_1, x_2$
-where $x_1$ is selected  randomly -1 to 1
-and $x_2$ is
-\bi
-\item For the negative examples,  $x_2=x_1^2$;
-\item For the positive examples $x_2=x_1^2-1$.
-\ei
-\ei
-We then ran a deep learner (with one hidden layer) for 10 epochs, with and without the weighted loss function (described below).
-Figures \ref{fig:unweighted} and \ref{fig:weighted} show the results. 
-Observe how,
-with an unweighted loss function, the neural network completely ignores the positive class, but with the weighted version, it recognizes the importance of the positive examples, pushing the accuracy up from 90.91\% to 99.09\%. 
-
-\BLUE
-\subsubsection{Notation used}
-\label{sec:notation}
-We briefly discuss notation used in Algorithm \ref{alg:ghost} for clarity:  \respto{2a6.1}
-\begin{itemize}
-    \item we use $f(\textbf{x}; \theta)$ to denote a neural network $f(\cdot)$;
-    \item we denote inputs by $\textbf{x}$ (we do not require a subscript to denote index since individual points are not referenced;
-    \item the neural network function above is \textit{parameterized by} the hyperparameter (and preprocessor) set $\theta$;
-    \item we use $\hat{\textbf{y}}$ to denote the predicted values and $\textbf{y}$ to denote the true values;
-    \item we use $\hat{\mathcal{L}}$ to denote our modified loss function
-    \item we use $m$ to denote the number of training samples;
-    \item we use $n$ to represent the ratio of majority class samples to minority class samples (so that $n > 1$);
-    \item without loss of generality, we use $c_0$ to denote the minority class, and $c_1$ to denote the majority class;
-\end{itemize}
-\BLACK
- 
-%  the answer is fairly clear: deep learners off the shelf are not tuned for specific metrics. Even when tuned for accuracy, deep learners will sometimes find ``easy", suboptimal solutions (as in Figure \ref{fig:unweighted}), and need to be pushed towards better solutions by biasing the loss function. Our motivation for using such weighted loss functions based on this example is by noting that defect prediction datasets have a class imbalance problem (see Table \ref{tab:datasets}), where the buggy modules are underrepresented. The biases applied are not necessarily non-trivial--by simply adjusting the weight, it is possible to bias learners towards specific goals.
-
-We now elaborate on the weighted loss functions used in
-Figure~\ref{fig:weighted}.  Consider a loss function $\mathcal{L}(y, \hat{y})$ (where $y$ is a vector representing the target outputs, and $\hat{y}$ is a vector representing the predictions) optimized by a neural network. As is the case with defect prediction, consider the case of binary classification. Let $c_0$ be the minority class, and $C$ be the set of all classes; for binary classification, this is simply the set $\{c_0, c_1\}$. Denote a training example by a subscript (i.e., let $y_i$ denote the target of the $i$th training example), and let $m$ be the number of training examples. Then, the loss function can be rewritten as:
-
-% \begin{align}
-%     \mathcal{L}(y, \hat{y}) &= \sum_{i=1}^m \mathcal{L}(y_i, \hat{y_i}) \nonumber \\
-%     &= \sum_{\substack{i=1 \\ y_i = c_0}}^m \mathcal{L}(y_i, \hat{y_i}) + \sum_{\substack{i=1 \\ y_i \neq c_0}}^m \mathcal{L}(y_i, \hat{y_i})
-% \end{align}
-
-
-
-\[
-    \begin{aligned}
-    \mathcal{L}(y, \hat{y}) &= \sum_{i=1}^m \mathcal{L}(y_i, \hat{y_i}) \nonumber = \sum_{\substack{i=1 \\ y_i = c_0}}^m \mathcal{L}(y_i, \hat{y_i}) + \sum_{\substack{i=1 \\ y_i \neq c_0}}^m \mathcal{L}(y_i, \hat{y_i})
-    \end{aligned}
-\]
-We call the above the \textit{unweighted} loss function. Now, we apply a fairly obvious method of weighting the above as follows. Let $n$ be the fraction of samples with class $c_0$. Then, we re-weight the loss function above to:
-
-\begin{equation}\label{eq:w}
-\begin{aligned}
-    \mathcal{L}^1(y_i, \hat{y_i}) &= \frac{w_i}{n}\sum_{\substack{i=1 \\ y_i = c_0}}^m \mathcal{L}(y_i, \hat{y_i}) + \sum_{\substack{i=1 \\ y_i \neq c_0}}^m \mathcal{L}(y_i, \hat{y_i})
-    \end{aligned}
-\end{equation}
-where $w_i$ is the weight control parameter. For this study, we ran with   various  weights  $w_i  \in \{1,10,100\}$ and found no appreciable difference between these settings. Hence, in the following, we use $w_i=1$. As an aside, we note that this can be extended to multi-class classification in several ways, one of them being adapting each $w_i$ so that the effective number of samples of each class ($\frac{w_i}{n_i}$) is roughly the same (this can be done using the lowest common multiple of the number of samples in each class).
-
-
-Clearly, as the minority class shrinks, there is a greater emphasis placed on getting these data points right. This is similar to oversampling by $\frac{w_i}{n}$ because with the unweighted loss function and oversampled data, an individual minority class data point (now represented multiple times) contributes more to the loss function than a majority class data point. However, using a weighted loss function has several advantages (a) we do not need to load additional samples into memory (b) we save computation since we do not need to run iterations over these samples (c) it is flexible: we can use a different weight easily.
-
- We certainly are not the first to attempt a reweighted loss function: Lin et al.~\cite{lin2017focal} propose a ``focal loss" function that uses an exponential weighting scheme. However, to the best of our knowledge, we are the first to apply this with various weights in the software engineering domain.
-
-
-\subsubsection{Weighted Fuzzy Oversampling}
-\label{sec:wfo}
-
-We found experimentally that while using a weighted loss function does improve performance, we can do better still, through weighted fuzzy oversampling. This is motivated by a desire to achieve more ``robust" decision boundaries. Let $\gamma_i$ be the (shortest) distance from a minority sample to the decision boundary. Akin to the terminology used in support vector machines, we call $\gamma_i$ the \textit{functional margin}, and $\gamma = \min\limits_i \gamma_i$ the \textit{geometric margin}. Our proposed weighted fuzzy oversampling is motivated by the SVM goal to achieve $\hat{y} = w^Tx + b \geq \gamma$. 
-% SVMs  impose a scaling constraint to ensure a convex optimization problem; since the loss surfaces of deep learners are generally non-convex (for a detailed discussion, see \cite{santurkar2018does}), we find this unnecessary. For the same robustness reasons that SVMs maximize the geometric margin, the use of weighted fuzzy oversampling is motivated by a desire to build robust decision boundaries by increasing each functional margin (and therefore, the geometric margin). In particular, we note that while weighted loss functions motivate the deep learner to learn decision boundaries that consider the minority class, it has no obligation to learn a ``robust" boundary. 
-Using the same notation as the weighted loss functions, let $n$ represent the fraction of samples in the minority class $c_0$. Then, iteratively, we add the training samples $(\textbf{x} - i \boldsymbol{\Delta r}, c_0)$ and $(\textbf{x} + i\boldsymbol{\Delta r}, c_0)$ for each sample $(\textbf{x}, c_0)$ in the minority class. At iteration $i$, we add the new samples $\frac{(1 / n)}{2^i}$ times; we iterate till this value is 0. Here, $\boldsymbol{\Delta r}$ (which we note is a vector) is a user-specified parameter; in our experiments, we found that values between 0.01 and 0.05 work well. We note here that it might be more beneficial to choose $\Delta r$ based on the statistics of each attribute, but we do not explore that here. Algorithm \ref{alg:wfo} describes weighted fuzzy oversampling.
-
-\begin{algorithm}[h]
-\footnotesize
-    \SetAlgoLined
-    \For{each sample $\textbf{x}$ in the minority class}{
-        \For{$i$ such that $\frac{(1/n)}{2^i} >= 1$}{
-            Add $(\textbf{x} \pm i\Delta r, c_0)$ to the training set\;
-        }
-    }
-    \caption{Weighted fuzzy oversampling}
-    \label{alg:wfo}
-\end{algorithm}
-
-
-
-\begin{algorithm}[!h]
-\footnotesize
-    \SetAlgoLined
-    Separate the data into train and test sets\;
-    Apply weighted fuzzy oversampling to the training set\;
-    Apply SMOTE to the resulting training set\;
-    Choose a set of key hyperparameters and pre-processors\;
-    Build a list of options for preprocessing and tuning, and assign every node a weight of 0\;
-    Sample at random to create random combinations of preprocessors and hyperparameters\;
-    \For{$N_1$ random samples $\theta_1,\ldots,\theta_{N_1}$}{
-        \For{$N_0$ epochs}{
-            $\hat{\textbf{y}} = f(\textbf{x}; \theta_i)$\;
-            $\textbf{w} = \textbf{w} - \nabla_{\textbf{w}} \hat{\mathcal{L}}(\textbf{y}, \hat{\textbf{y}})$\;
-        }
-        $\phi_i = \text{eval}(f)$\;
-    }
-    \For{options that result in metrics with a difference $<\epsilon$} {
-        Reduce the weight by 1\;
-    }
-    \ForAll{other options}{
-        Increase the weight by 1\;
-    }
-    \For{$N_2$ evaluations}{
-        Choose the options with the highest weight, and mutate its parameter settings\;
-        \For{$N_0$ epochs}{
-            $\hat{\textbf{y}} = f(\textbf{x}; \theta_i)$\;
-            $\textbf{w} = \textbf{w} - \nabla_{\textbf{w}} \hat{\mathcal{L}}(\textbf{y}, \hat{\textbf{y}}$)\;
-        }
-        $\theta^* = \text{argmax}_{\theta} \text{eval}(f)$\;
-    }
-    \KwRet{$\theta^*$}
-    \caption{GHOST}
-    \label{alg:ghost}
-\end{algorithm}
-
-
-\subsubsection{Pseudo-code}
-\label{sec:pseudocode}
-As shown in  Algorithm \ref{alg:ghost}, 
-GHOST uses weighted loss functions (lines 10,24),
- DODGE's    ``$\epsilon$-domiantion'' (line 14), and
-   weighted fuzzy oversampling (line 2).
-    Having tuned the deep learner to (a) learn to recognize the minority class and (b) learn robust decision boundaries using the above methods,
-    we found that
-    GHOST achieved good recalls, but the learners now have trouble recognizing the negative examples, due to the minority class being \textit{over-oversampled}. We fix this using SMOTE~\cite{Chawla02} with the default settings.
-   SMOTE is a method for handling class
-    imbalance. In the training set, this algorithm discards instances
-    from the majority class while also generating
-    artificial examples of the minority class (by extrapolating between near neighbors of the same class).
-
-\BLUE
-Weighted loss functions perform standard oversampling in a computationally efficient way, balancing out the classes. However, it achieves this efficiency by weighting each minority class sample more. Therefore, the deep learner can, in theory, still reduce the value of this loss function by narrowly classifying the minority samples correctly. This behavior is undesired because it is, essentially, overfitting on part of the learner, since it only adjusted the decision boundary based on the training data. Weighted fuzzy oversampling is an attempt to alleviate this issue by adding ``guard points" around the minority class point, further pushing away the neural network decision boundary. That said, we do not wish to ``pollute" the original training data with fake data points, and so we reduce the ``value" (where value means the loss function value) of these points with the exponential decay (the $2^i$ in the denominator).
-
-Finally, with the extra added points, the data is now unbalanced the other way, and we fix this with a well-known oversampling strategy, SMOTE.
-\respto{1a3.1}
-\BLACK
-
-(Technical aside:  SMOTE is different from weighted fuzzy oversampling-- while SMOTE adds one point randomly between one of $k$ nearest neighbors, weighted fuzzy oversampling radially oversamples points with an exponentially decaying weight.)
-
-
 
 
 
@@ -991,6 +707,61 @@ We ran our experiments on two machines:
 
 Because of the stochastic nature of deep learning (caused by random weight initialization), a statistically valid study of its merits should consider the distribution of its performance. For this reason, we run GHOST 20 times for each dataset, for each metric. All the results reported (in Table \ref{tab:results} and Table \ref{tab:tan}) are median values of these 20 runs.
 
+
+\begin{table}
+    \centering
+    \caption{Static attributes in our  datasets.}
+    \begin{tabularx}{\linewidth}{lL}
+    \toprule
+        Attribute   & Description (with respect to a class) \\
+        \midrule
+        wmc & Weighted methods per class \cite{chidamber1994metrics} \\
+    \rowcolor{blue!10}    dit & Depth of inheritance tree \cite{chidamber1994metrics} \\
+        noc & Number of children \cite{chidamber1994metrics} \\
+    \rowcolor{blue!10}    cbo & Coupling between objects \cite{chidamber1994metrics} \\
+        rfc & Response for a class \cite{chidamber1994metrics} \\
+    \rowcolor{blue!10}    lcom & Lack of cohesion in methods \cite{chidamber1994metrics} \\
+        lcom3 & Another lcom metric proposed by Henderson-Sellers \cite{henderson1996coupling} \\
+    \rowcolor{blue!10}    npm & Number of public methods \cite{bansiya2002hierarchical} \\
+        loc & Number of lines of code \cite{bansiya2002hierarchical} \\
+    \rowcolor{blue!10}    dam & Fraction of private or protected attributes \cite{bansiya2002hierarchical} \\
+        moa & Number of fields that are user-defined types \cite{bansiya2002hierarchical} \\
+    \rowcolor{blue!10} mfa & Fraction of accessible methods that are inherited \cite{bansiya2002hierarchical} \\
+        cam & Cohesion among methods of a class based on parameter list \cite{bansiya2002hierarchical} \\
+    \rowcolor{blue!10} ic & Inheritance coupling \cite{tang1999empirical} \\
+        cbm & Coupling between methods \cite{tang1999empirical} \\
+    \rowcolor{blue!10} amc & Average method complexity \cite{tang1999empirical} \\
+        ca & Number of classes depending on a class \cite{tang1999empirical} \\
+    \rowcolor{blue!10} ce & Number of classes a class depends on \cite{tang1999empirical} \\
+        max\_cc & Maximum McCabe's cyclomatic complexity score of methods \cite{mccabe1976complexity} \\
+    \rowcolor{blue!10} avg\_cc & Mean of McCabe's cyclomatic complexity score of methods \cite{mccabe1976complexity} 
+    \end{tabularx}
+    \label{tab:attributes}
+\end{table}
+
+
+\begin{table} 
+    \centering
+    \caption{Evaluated software projects for comparing with DODGE \cite{agrawal2019dodge}}
+    \begin{tabularx}{\linewidth}{lllLL}
+        \toprule
+        Project & Train versions & Test versions & Training Buggy \% & Test  Buggy \% \\
+        \midrule
+        ivy & 1.1, 1.4 & 2.0 & 22 & 11 \\
+        \rowcolor{blue!10} lucene & 2.0, 2.2 & 2.4 & 53 & 60 \\
+        poi & 1.5, 2.0, 2.5 & 3.0 & 46 & 65 \\
+        \rowcolor{blue!10}synapse & 1.0, 1.1 & 1.2 & 20 & 34 \\
+        velocity & 1.4, 1.5 & 1.6 & 71 & 34 \\
+        \rowcolor{blue!10}camel & 1.0, 1.2, 1.4 & 1.6 & 21 & 19 \\
+        jEdit & 3.2, 4,0, 4.1, 4.2 & 4.3 & 23 & 2 \\
+        \rowcolor{blue!10}log4j & 1.0, 1.1 & 1.2 & 29 & 92 \\
+        xalan & 2.4, 2.5, 2.6 & 2.7 & 38 & 99 \\
+        \rowcolor{blue!10}xerces & 1.2, 1.3 & 1.4 & 16 & 74 \\
+        \bottomrule \\
+    \end{tabularx}
+    \label{tab:datasets}
+\end{table}
+
 \subsection{Data}
 For this study, we use the same data used in DODGE's prior study~\cite{agrawal2019dodge} on defect prediction: see Table \ref{tab:datasets}. These are all open source Java projects from  the PROMISE repository \cite{Sayyad-Shirabad+Menzies:2005}.  Each dataset has 20 static attributes for each software project, described in Table \ref{tab:attributes}.
 
@@ -1012,6 +783,11 @@ For this study, we use the same data used in DODGE's prior study~\cite{agrawal20
 For this study, we use   performance metrics widely used     used in 
 the defect predication literature.
 Specifically, we evaluate the performance of our learners using three metrics: Area Under the ROC Curve (AUC) with false positive rate on the x-axis and true positive rate on the y-axis, recall, false alarm rate, and popt20. We use these measures to compare against the baseline of Agrawal et al.~\cite{agrawal2019dodge}.
+
+\BLUE
+A key benefit of using multiple metrics, aside from a more complete view of the model's performance, is that it allows us to more concretely answer RQ4, i.e., whether deep learning works for all situations. Since some metrics are more important for certain stakeholders (e.g., popt20 comments on the effort needed after the defect predictor is run; others may prefer a combination of high recalls and low false alarm rates, i.e., d2h), this exploration allows us to point out the cases where deep learning may not be the most suitable option.
+\respto{3a2.3}
+\BLACK
 
 Recall measures the number of positive examples that were correctly classified by a learner:
 
@@ -1163,6 +939,236 @@ $\Delta$.
 
 % Experimentally, we found that no more than 80 epochs were required for convergence. We test convergence by training using Early Stopping, which stops training if the validation loss does not improve after 5 epochs. The results of this test are shown in Figure \ref{fig:convergence}. However, our experiments use only 10 epochs. While we could have certainly gotten better results by running our learners for 80 epochs (and this would not have taken significantly longer), we wanted to demonstrate clearly that deep learners can achieve competitive performance very quickly, when used right and with proper tuning and choice of architectures (based off proven reasoning).
 
+\subsection{Optimization with GHOST \respto{3a2.1}}
+The lesson of DODGE is that the particulars
+of Table~\ref{tab:preprocessors1} can be
+less important than how we explore combinations
+of learning methods.   So can we do more with
+that insight? Is there some process more
+direct that DODGE that explores, in a
+more direct way, how to divide data
+into regions that (e.g.) do or do not
+predict for defects?
+
+This section proposes GHOST as an
+answer to those questions. To understand
+GHOST, we first take a glance at   our defect prediction data. Table~\ref{tab:attributes} shows
+the static code attributes seen in our data
+and Table~\ref{tab:datasets} shows what releases
+we use for our training and test sets when comparing with DODGE\footnote{These releases were selected as follows: in the available data, use recent releases to predict for defects in the latest release.} (when comparing against our other baseline by Wang et al. \cite{wang2018deep}, we use the same train and test release versions as they do). A curious feature of    Table~\ref{tab:datasets} is the wide variability in the percent of defects seen in the training and test sets. For example, the defect ratios in: 
+\bi
+\item  velocity's  train:test ratios decrease from 71 to 34\%;
+\item jEdit's train:test sets ratios decrease from  23 to 2\%;
+\item xerces' train:test sets ratios increase from  16 to 74\%.
+\item log4j's train:test sets ratios increase from  29 to 92\%;
+\item xalan's train:test sets ratios increase from 38 to 99\%;
+\ei
+Such massive changes in the target class ratios means
+that the geometry of the hyperspace boundary
+between different classifications  
+can alter dramatically between train and test.
+Therefore, the ``appropriate
+learner''   for
+this kind of data is one that
+works well for a wide range
+of ratios
+of class distributions.
+Such an appropriate learner
+knows how to exploit
+``hints'' from the hyperspace boundary in the train
+set, then apply those hints to the test set.
+
+GHOST was  implemented as an experiment
+to see if the   {\em loss functions} of neural networks can learn such ``hints''.
+What the rest of this paper   shows is that
+ such loss function
+ (plus some
+fuzzy oversampling, described below) is an effective
+method for handling defect prediction.
+
+\subsubsection{Loss Functions}
+\label{sec:loss}
+In neural networks, the loss function is the prediction error seen in the last epoch of the
+neural net. The loss is used to calculate the gradients used to  update the weights of the neural net for the next epoch of learning. 
+Loss can be calculated in various ways\footnote{ 
+mean squared error,  
+binary crossentropy, 
+categorical crossentropy,
+sparse categorical crossentropy, etc. } but the key point to note here is that, usually, the loss function is fixed prior to learning.
+
+
+
+
+
+
+\begin{figure}[!h]
+\centering
+    \begin{subfigure}[b]{.4\textwidth}
+        \centering
+        \includegraphics[width=.7\textwidth]{unweighted.png}
+        \caption{Unweighted loss function}
+        \label{fig:unweighted}
+    \end{subfigure}
+    %
+    \begin{subfigure}[b]{.4\textwidth}
+        \centering
+        \includegraphics[width=.7\textwidth]{weighted.png}
+        \caption{Weighted loss function}
+        \label{fig:weighted}
+    \end{subfigure}
+    \caption{The two arcs in these figures show points selected from two distributions: $y_1=x_1^2$ and $y_2=x_1^2-1$ (where $y_1$ is ten times more frequent than $y_2$).  The background colors show the hyperspaces learned by a neural network. Note that, in the top plot (using an unweighted loss function), the hyperspace is all one color; i.e, it does not distinguish between the two populations. But in the lower plot, the hyperspace divided into blue and orange, where orange denotes the region where the neural net predicts that the data comes from the minority  $x_1^2-1$. distribution. Observe how  the unweighted loss function misses all the minority class with  while the  weighted loss function can find nearly all  of the minority class.}
+\end{figure}
+
+In 2019, Cui et al.~\cite{Cui_2019_CVPR} proposed dynamically adjusted loss functions that know how to adjust the loss function in order to reduce the overlap between sets of positive and  negative examples.
+Their re-weighting scheme   uses the effective number of samples for each class to re-balance the loss, thereby yielding a class-balanced loss. Their experiments show that,
+when trained with a dynamic class-balanced loss function, the network is able to achieve significant performance gains on data sets with class imbalance. 
+
+The methods of  Cui et al. assumed high dimensional vision data (with, sometimes, over 8000 classes), so we can  not  directly apply their methods here. However, inspired by their work, we did design a class balance method that proved to be effective for defect prediction.
+To illustrate that method, we artificially generated two sets of data with very different class distributions. This data had 200 rows and three columns:
+\bi
+\item A class column, whose values are selected at random, with the negative class being 10 times more likely than the positive class)
+
+\item
+Two other columns which we call $x_1, x_2$
+where $x_1$ is selected  randomly -1 to 1
+and $x_2$ is
+\bi
+\item For the negative examples,  $x_2=x_1^2$;
+\item For the positive examples $x_2=x_1^2-1$.
+\ei
+\ei
+We then ran a deep learner (with one hidden layer) for 10 epochs, with and without the weighted loss function (described below).
+Figures \ref{fig:unweighted} and \ref{fig:weighted} show the results. 
+Observe how,
+with an unweighted loss function, the neural network completely ignores the positive class, but with the weighted version, it recognizes the importance of the positive examples, pushing the accuracy up from 90.91\% to 99.09\%. 
+
+\BLUE
+\subsubsection{Notation used}
+\label{sec:notation}
+We briefly discuss notation used in Algorithm \ref{alg:ghost} for clarity:  \respto{2a6.1}
+\begin{itemize}
+    \item we use $f(\textbf{x}; \theta)$ to denote a neural network $f(\cdot)$;
+    \item we denote inputs by $\textbf{x}$ (we do not require a subscript to denote index since individual points are not referenced;
+    \item the neural network function above is \textit{parameterized by} the hyperparameter (and preprocessor) set $\theta$;
+    \item we use $\hat{\textbf{y}}$ to denote the predicted values and $\textbf{y}$ to denote the true values;
+    \item we use $\hat{\mathcal{L}}$ to denote our modified loss function
+    \item we use $m$ to denote the number of training samples;
+    \item we use $n$ to represent the fraction of samples belonging to the minority class;
+    \item without loss of generality, we use $c_0$ to denote the minority class, and $c_1$ to denote the majority class;
+\end{itemize}
+\BLACK
+ 
+%  the answer is fairly clear: deep learners off the shelf are not tuned for specific metrics. Even when tuned for accuracy, deep learners will sometimes find ``easy", suboptimal solutions (as in Figure \ref{fig:unweighted}), and need to be pushed towards better solutions by biasing the loss function. Our motivation for using such weighted loss functions based on this example is by noting that defect prediction datasets have a class imbalance problem (see Table \ref{tab:datasets}), where the buggy modules are underrepresented. The biases applied are not necessarily non-trivial--by simply adjusting the weight, it is possible to bias learners towards specific goals.
+
+We now elaborate on the weighted loss functions used in
+Figure~\ref{fig:weighted}.  Consider a loss function $\mathcal{L}(y, \hat{y})$ (where $y$ is a vector representing the target outputs, and $\hat{y}$ is a vector representing the predictions) optimized by a neural network. As is the case with defect prediction, consider the case of binary classification. Let $c_0$ be the minority class, and $C$ be the set of all classes; for binary classification, this is simply the set $\{c_0, c_1\}$. Denote a training example by a subscript (i.e., let $y_i$ denote the target of the $i$th training example), and let $m$ be the number of training examples. Then, the loss function can be rewritten as:
+
+% \begin{align}
+%     \mathcal{L}(y, \hat{y}) &= \sum_{i=1}^m \mathcal{L}(y_i, \hat{y_i}) \nonumber \\
+%     &= \sum_{\substack{i=1 \\ y_i = c_0}}^m \mathcal{L}(y_i, \hat{y_i}) + \sum_{\substack{i=1 \\ y_i \neq c_0}}^m \mathcal{L}(y_i, \hat{y_i})
+% \end{align}
+
+
+
+\[
+    \begin{aligned}
+    \mathcal{L}(y, \hat{y}) &= \sum_{i=1}^m \mathcal{L}(y_i, \hat{y_i}) \nonumber = \sum_{\substack{i=1 \\ y_i = c_0}}^m \mathcal{L}(y_i, \hat{y_i}) + \sum_{\substack{i=1 \\ y_i \neq c_0}}^m \mathcal{L}(y_i, \hat{y_i})
+    \end{aligned}
+\]
+We call the above the \textit{unweighted} loss function. Now, we apply a fairly obvious method of weighting the above as follows. Let $n$ be the fraction of samples with class $c_0$. Then, we re-weight the loss function above to:
+
+\begin{equation}\label{eq:w}
+\begin{aligned}
+    \mathcal{L}^1(y_i, \hat{y_i}) &= \frac{w_i}{n}\sum_{\substack{i=1 \\ y_i = c_0}}^m \mathcal{L}(y_i, \hat{y_i}) + \sum_{\substack{i=1 \\ y_i \neq c_0}}^m \mathcal{L}(y_i, \hat{y_i})
+    \end{aligned}
+\end{equation}
+where $w_i$ is the weight control parameter. For this study, we ran with   various  weights  $w_i  \in \{1,10,100\}$ and found no appreciable difference between these settings. Hence, in the following, we use $w_i=1$. As an aside, we note that this can be extended to multi-class classification in several ways, one of them being adapting each $w_i$ so that the effective number of samples of each class ($\frac{w_i}{n_i}$) is roughly the same (this can be done using the lowest common multiple of the number of samples in each class).
+
+
+Clearly, as the minority class shrinks, there is a greater emphasis placed on getting these data points right. This is similar to oversampling by $\frac{w_i}{n}$ because with the unweighted loss function and oversampled data, an individual minority class data point (now represented multiple times) contributes more to the loss function than a majority class data point. However, using a weighted loss function has several advantages (a) we do not need to load additional samples into memory (b) we save computation since we do not need to run iterations over these samples (c) it is flexible: we can use a different weight easily.
+
+ We certainly are not the first to attempt a reweighted loss function: Lin et al.~\cite{lin2017focal} propose a ``focal loss" function that uses an exponential weighting scheme. However, to the best of our knowledge, we are the first to apply this with various weights in the software engineering domain.
+
+
+\subsubsection{Weighted Fuzzy Oversampling}
+\label{sec:wfo}
+
+We found experimentally that while using a weighted loss function does improve performance, we can do better still, through weighted fuzzy oversampling. This is motivated by a desire to achieve more ``robust" decision boundaries. Let $\gamma_i$ be the (shortest) distance from a minority sample to the decision boundary. Akin to the terminology used in support vector machines, we call $\gamma_i$ the \textit{functional margin}, and $\gamma = \min\limits_i \gamma_i$ the \textit{geometric margin}. Our proposed weighted fuzzy oversampling is motivated by the SVM goal to achieve $\hat{y} = w^Tx + b \geq \gamma$. 
+% SVMs  impose a scaling constraint to ensure a convex optimization problem; since the loss surfaces of deep learners are generally non-convex (for a detailed discussion, see \cite{santurkar2018does}), we find this unnecessary. For the same robustness reasons that SVMs maximize the geometric margin, the use of weighted fuzzy oversampling is motivated by a desire to build robust decision boundaries by increasing each functional margin (and therefore, the geometric margin). In particular, we note that while weighted loss functions motivate the deep learner to learn decision boundaries that consider the minority class, it has no obligation to learn a ``robust" boundary. 
+Using the same notation as the weighted loss functions, let $n$ represent the fraction of samples in the minority class $c_0$. Then, iteratively, we add the training samples $(\textbf{x} - i \boldsymbol{\Delta r}, c_0)$ and $(\textbf{x} + i\boldsymbol{\Delta r}, c_0)$ for each sample $(\textbf{x}, c_0)$ in the minority class. At iteration $i$, we add the new samples $\frac{(1 / n)}{2^i}$ times; we iterate till this value is 0. Here, $\boldsymbol{\Delta r}$ (which we note is a vector) is a user-specified parameter; in our experiments, we found that values between 0.01 and 0.05 work well. We note here that it might be more beneficial to choose $\Delta r$ based on the statistics of each attribute, but we do not explore that here. Algorithm \ref{alg:wfo} describes weighted fuzzy oversampling.
+
+\begin{algorithm}[h]
+\footnotesize
+    \SetAlgoLined
+    \For{each sample $\textbf{x}$ in the minority class}{
+        \For{$i$ such that $\frac{(1/n)}{2^i} >= 1$}{
+            Add $(\textbf{x} \pm i\Delta r, c_0)$ to the training set\;
+        }
+    }
+    \caption{Weighted fuzzy oversampling}
+    \label{alg:wfo}
+\end{algorithm}
+
+
+
+\begin{algorithm}[!h]
+\footnotesize
+    \SetAlgoLined
+    Separate the data into train and test sets\;
+    Apply weighted fuzzy oversampling to the training set\;
+    Apply SMOTE to the resulting training set\;
+    Choose a set of key hyperparameters and pre-processors\;
+    Build a list of options for preprocessing and tuning, and assign every node a weight of 0\;
+    Sample at random to create random combinations of preprocessors and hyperparameters\;
+    \For{$N_1$ random samples $\theta_1,\ldots,\theta_{N_1}$}{
+        \For{$N_0$ epochs}{
+            $\hat{\textbf{y}} = f(\textbf{x}; \theta_i)$\;
+            $\textbf{w} = \textbf{w} - \nabla_{\textbf{w}} \hat{\mathcal{L}}(\textbf{y}, \hat{\textbf{y}})$\;
+        }
+        $\phi_i = \text{eval}(f)$\;
+    }
+    \For{options that result in metrics with a difference $<\epsilon$} {
+        Reduce the weight by 1\;
+    }
+    \ForAll{other options}{
+        Increase the weight by 1\;
+    }
+    \For{$N_2$ evaluations}{
+        Choose the options with the highest weight, and mutate its parameter settings\;
+        \For{$N_0$ epochs}{
+            $\hat{\textbf{y}} = f(\textbf{x}; \theta_i)$\;
+            $\textbf{w} = \textbf{w} - \nabla_{\textbf{w}} \hat{\mathcal{L}}(\textbf{y}, \hat{\textbf{y}}$)\;
+        }
+        $\theta^* = \text{argmax}_{\theta} \text{eval}(f)$\;
+    }
+    \KwRet{$\theta^*$}
+    \caption{GHOST}
+    \label{alg:ghost}
+\end{algorithm}
+
+
+\subsubsection{Pseudo-code}
+\label{sec:pseudocode}
+As shown in  Algorithm \ref{alg:ghost}, 
+GHOST uses weighted loss functions (lines 10,24),
+ DODGE's    ``$\epsilon$-domiantion'' (line 14), and
+   weighted fuzzy oversampling (line 2).
+    Having tuned the deep learner to (a) learn to recognize the minority class and (b) learn robust decision boundaries using the above methods,
+    we found that
+    GHOST achieved good recalls, but the learners now have trouble recognizing the negative examples, due to the minority class being \textit{over-oversampled}. We fix this using SMOTE~\cite{Chawla02} with the default settings.
+   SMOTE is a method for handling class
+    imbalance. In the training set, this algorithm discards instances
+    from the majority class while also generating
+    artificial examples of the minority class (by extrapolating between near neighbors of the same class).
+
+\BLUE
+Weighted loss functions perform standard oversampling in a computationally efficient way, balancing out the classes. However, it achieves this efficiency by weighting each minority class sample more. Therefore, the deep learner can, in theory, still reduce the value of this loss function by narrowly classifying the minority samples correctly. This behavior is undesired because it is, essentially, overfitting on part of the learner, since it only adjusted the decision boundary based on the training data. Weighted fuzzy oversampling is an attempt to alleviate this issue by adding ``guard points" around the minority class point, further pushing away the neural network decision boundary. That said, we do not wish to ``pollute" the original training data with fake data points, and so we reduce the ``value" (where value means the loss function value) of these points with the exponential decay (the $2^i$ in the denominator).
+
+Finally, with the extra added points, the data is now unbalanced the other way, and we fix this with a well-known oversampling strategy, SMOTE.
+\respto{1a3.1}
+\BLACK
+
+(Technical aside:  SMOTE is different from weighted fuzzy oversampling-- while SMOTE adds one point randomly between one of $k$ nearest neighbors, weighted fuzzy oversampling radially oversamples points with an exponentially decaying weight.)
 
 
 
@@ -1568,8 +1574,48 @@ For more information,  please visit \url{http://menzies.us}.
 %%%%%%%%%%%%%%%%%%%%%%
 % REVIEWER RESPONSES %
 %%%%%%%%%%%%%%%%%%%%%%
-
+\onecolumn
 \appendices 
+
+\section{On the goals of standard loss functions \respto{3a2.2}}
+\label{sec:appendix}
+
+Consider the binary classification problem, and the standard loss function of choice, the binary cross-entropy loss. When divided by the number of samples $m$, it is given by (using the same notation as \S \ref{sec:notation})
+
+\[
+    \mathcal{L}(\hat{y}, y) = -\frac{1}{m} \sum\limits_i y_i \log \hat{y}_i -\frac{1}{m} \sum\limits_i (1-y_i)\log (1-\hat{y}_i)
+\]
+
+It can be seen that this loss places equal emphasis on both the positive and negative samples. Further, the sigmoid function, which is used in binary classification, is typically used with a threshold of $0.5$. Borrowing from signal detection theory \cite{green1966signal}, however, we note that in cases where one class is more important than the other (leading us to the Bayes criterion), the threshold is typically set at a distance from the intersection of the two signals. In addition, when low false alarms are desirable, a stricter threshold is preferred \cite{koenig2011absolute}. We now prove that this stricter threshold is equivalent to increasing the value of the loss function.
+
+\newtheorem{theorem}{Theorem}
+\begin{theorem}
+Given the standard binary classification setting, with the binary cross-entropy loss function and the sigmoid threshold function, using a higher threshold to attain lower false alarms is equivalent to increasing the value of the loss function.
+\end{theorem}
+
+\begin{proof}
+Suppose we implement this stricter threshold by substituting $\hat{y}$ by $\alpha\hat{y}$, where $\alpha = \frac{0.5}{k}$, and $k$ is a stricter threshold (i.e., $0.5 < k < 1$) so that $0 < \alpha < 1$:
+
+\[
+    \hat{\mathcal{L}}(\hat{y}, y) = -\frac{1}{m} \sum\limits_i y_i \log (\alpha\hat{y}_i) -\frac{1}{m} \sum\limits_i (1-y_i)\log (1-\alpha\hat{y}_i)
+\]
+
+We can easily expand the first term:
+
+\[
+    \hat{\mathcal{L}}(\hat{y}, y) = -\frac{1}{m} \sum\limits_i y_i \log (\hat{y}_i) -\frac{\log \alpha}{m} \sum\limits_i y_i -\frac{1}{m} \sum\limits_i (1-y_i)\log (1-\alpha\hat{y}_i)
+\]
+
+For the last term, we can infer that $0 < \hat{y}_i, \alpha < 1 \Rightarrow 0 < 1 - \alpha \hat{y}_i < 1$, and therefore its logarithm (assuming the base is 2, as is typical in implementations) is negative. Because $\alpha \hat{y} < \hat{y}$, $1 - \alpha \hat{y} > 1 - \hat{y}$ and therefore $\log (1 - \alpha \hat{y}) > \log (1 - \hat{y})$ (since the logarithm is a monotonically increasing function). This leads us to $-\log (1 - \alpha \hat{y}) < -\log (1 - \hat{y})$. However, $y_i \in \{0, 1\}$, and so the last term is only nonzero for $y_i = 0$. Therefore, the difference $\epsilon$ between the last terms with and without the scaled output is
+
+\begin{align}
+    \epsilon &= \frac{1}{m}\sum\limits_{i:y_i = 0} (1-y_i) \log (1 - \hat{y}) - \frac{1}{m}\sum\limits_{i:y_i=0} (1-y_i) \log (1-\alpha \hat{y}) \nonumber \\
+    &= \frac{1}{m}\sum\limits_{i:y_i=0} \log(1-\hat{y}_i) -\log(1-\alpha\hat{y}_i)  \label{eq:epsilon}
+\end{align}
+
+Therefore, the effect of our scaling is that the last term reduces the logarithm by a small amount $\epsilon$; however, this is countered by the middle term increasing the value of the loss (since $\log \alpha < 0$); specifically, by a value proportional to $\frac{1}{m}\sum_i y_i = n$. Therefore, the value of the loss function is increased by $-n\log\alpha +\epsilon$, where $\epsilon$ is defined by \eqref{eq:epsilon}.
+\end{proof}
+
 \clearpage
 
 \setcounter{page}{1}
@@ -1692,6 +1738,21 @@ Thank you for pointing out this error. We have updated the text to reflect 8 tie
 \respto{2a6}
 \BLUE
 Thank you for pointing out that our notation was not discussed. We have corrected this by adding in a relevant subsection before the discussion of the algorithm \citeresp{2a6.1}.
+\BLACK
+
+\subsection{Response to Reviewer \#3}
+
+{\em {\bf R3-b:} Concern 2. The second research question is about the understanding of the reasons why deep learning fails for defect prediction. Section 3 does not report the methodology employed to address this research question, while Section 4.2 concludes with a **conjecture** rather than with something coming as a result of a methodology. This makes the research question, simply, not a research question - in my view, it is not acceptable to have a research question treated in a so trivial manner. At very least, the paper should remove it. Ideally, it should be treated as a proper research question: this means that both methodology and results should be properly reported. Please, note that exactly the same points are true for RQ4 - the findings seem to appear out of the blue.}
+
+\respto{3a2}
+\BLUE
+Thank you for your suggestions! We agree that the Experimental Methods section should have addressed how we answered RQ2. Our manuscript had this elaborated under Background, but we realize it might have fit better under this section instead. Therefore, we have moved the subsection under Experimental Methods instead \citeresp{3a2.1}.
+
+Regarding the answer to RQ2 (discussed in Section 4.2), our exploration of why deep learning fails under the imbalanced class case, as discussed in \S \ref{sec:loss}, and demonstrated in Figures \ref{fig:unweighted} and \ref{fig:weighted} formed the basis of this paper, which was to use a weighted loss function instead. Our reasoning based on the results on our example dataset was that standard loss functions are not optimized for metrics that, in defect prediction, are more useful; rather, they are optimized for accuracy instead. We were further persuaded to try weighted loss functions from signal detection theory, which led us to discover that to achieve lower false alarms, the value of the loss function should be increased (for a proof, see the newly added Appendix \ref{sec:appendix}). With unweighted loss functions, our deep learners achieved high accuracy scores by predicting all samples as negative; however, when tuned for recall using DODGE, the deep learners did so by predicting all samples as defects (achieving recall of 100\%, but also false alarm rate of 100\%). This observation coupled with the results from Appendix \ref{sec:appendix}, led us to develop the weighted loss functions discussed in the paper, which increase the value of the loss function in a more natural way.
+
+Therefore, our answer to RQ2 was based on the example shown in the text, as well as some motivation from signal detection theory.
+
+We agree that the results of RQ4 also came in a similarly jarring manner, with no discussion of the methodology used to derive an answer. We have now added a paragraph describing this under Performance Metrics \citeresp{3a2.3}.
 \BLACK
 
 \end{document}
